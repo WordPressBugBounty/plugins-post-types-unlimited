@@ -18,7 +18,7 @@ class Metaboxes {
 	 * @var   string
 	 * @since 1.0
 	 */
-	public $version = '1.2.3';
+	public $version = '1.2.4';
 
 	/**
 	 * Default metabox settings.
@@ -434,7 +434,7 @@ class Metaboxes {
 			'selected'          => (int) $value,
 			'name'              => $this->parse_field_id( $field['id'] ),
 			'id'                => "ptu-metabox-field--{$field['id']}",
-			'show_option_none'  => \esc_html__( '- None -', 'post-types-unlimited' ),
+			'show_option_none'  => \esc_html__( '— Select —', 'post-types-unlimited' ),
 			'option_none_value' => '',
 		) );
 
@@ -463,7 +463,7 @@ class Metaboxes {
 	 */
 	protected function field_image_size( $field, $value ) {
 		$choices = [
-			'' => \esc_html__( '- Select -', 'post-types-unlimited' ),
+			'' => \esc_html__( '— Select —', 'post-types-unlimited' ),
 		];
 		$image_sizes = \get_intermediate_image_sizes();
 		if ( ! in_array( 'full', $image_sizes ) ) {
@@ -479,7 +479,7 @@ class Metaboxes {
 	 */
 	protected function field_taxonomy( $field, $value ) {
 		$choices = [
-			'' => \esc_html__( '- Select -', 'post-types-unlimited' ),
+			'' => \esc_html__( '— Select —', 'post-types-unlimited' ),
 		];
 		$taxonomies = \get_taxonomies( [
 			'public' => true,
@@ -512,13 +512,37 @@ class Metaboxes {
 		}
 
 		$output = '<select id="ptu-metabox-field--' . \esc_attr( $field['id'] ) . '" name="' . \esc_attr( $this->parse_field_id( $field['id'] ) ) . '">';
-			foreach ( $choices as $choice_v => $name ) {
-				$selected = \selected( $value, $choice_v, false );
-				$output .= '<option value="' .  \esc_attr( $choice_v ) . '" ' . $selected . '>' . \esc_attr( $name ) . '</option>';
-			}
+			$output .= $this->select_field_options( $choices, $value );
 		$output .= '</select>';
 
 		return $output;
+	}
+
+	/**
+	 * Renders select field options.
+	 *
+	 * @access protected
+	 * @since 1.2.4
+	 */
+	protected function select_field_options( $choices, $value ): string {
+		$options = '';
+		foreach ( $choices as $choice_k => $choice_v ) {
+			if ( is_array( $choice_v ) ) {
+				$sub_choices = $choice_v['choices'] ?? $choice_v['options'] ?? [];
+				if ( $sub_choices ) {
+					if ( ! empty( $choice_v['label'] ) ) {
+						$options .= '<optgroup label="' . esc_attr( $choice_v['label'] ) . '">';
+							$options .= $this->select_field_options( $sub_choices, $value );
+						$options .= '</optgroup>';
+					} else {
+						$options .= $this->select_field_options( $sub_choices, $value );
+					}
+				}
+			} else {
+				$options .= '<option value="' .  \esc_attr( $choice_k ) . '" ' . \selected( $value, $choice_k, false ) . '>' . \esc_attr( $choice_v ) . '</option>';
+			}
+		}
+		return $options;
 	}
 
 	/**

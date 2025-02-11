@@ -4,8 +4,8 @@ Donate link: https://www.wpexplorer.com/donate/
 Tags: custom post types, post types, types, cpt, taxonomies
 Requires at least: 5.2.0
 Requires PHP: 7.4
-Tested up to: 6.6
-Stable Tag: 1.2.3
+Tested up to: 6.7
+Stable Tag: 1.2.4
 License: GPL v2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,11 @@ Nope. This plugin includes everything you need to register custom post types and
 Yes! Post Types Unlimited is a great companion plugin for your theme. Here is the guide to [adding custom options to the post types unlimited plugin](https://www.wpexplorer.com/post-types-unlimited-custom-options/).
 
 == Changelog ==
+
+= 1.2.4 =
+* Updated the tested up to version to 6.7
+* Updated the metabox class to support option groups for select fields.
+* Updated the page and taxonomy select fields to both use "Select" for the empty option for consistency.
 
 = 1.2.3 =
 * Added new metabox field types for use with 3rd party integrations: page, taxonomy & image_size.
