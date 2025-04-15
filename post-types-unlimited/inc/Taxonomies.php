@@ -147,7 +147,7 @@ class Taxonomies {
 					'required'          => true,
 					'maxlength'         => '32',
 					'placeholder'       => \__( 'e.g. genre', 'post-types-unlimited' ),
-					'desc'              => \__( 'The name of the taxonomy. Name should only contain lowercase letters and the underscore character, and not be more than 32 characters long (database structure restriction).', 'post-types-unlimited' ),
+					'desc'              => \__( 'Taxonomy key. Must not exceed 32 characters and may only contain lowercase alphanumeric characters, dashes, and underscores.', 'post-types-unlimited' ),
 				),
 				array(
 					'name'        => \__( 'Label', 'post-types-unlimited' ),

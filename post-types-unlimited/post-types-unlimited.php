@@ -3,7 +3,7 @@
  * Plugin Name:       Post Types Unlimited
  * Plugin URI:        https://wordpress.org/plugins/post-types-unlimited/
  * Description:       Create unlimited custom post types and custom taxonomies.
- * Version:           1.2.4
+ * Version:           1.2.5
  * Requires at least: 5.7
  * Requires PHP:      7.4
  * Author:            WPExplorer
@@ -43,7 +43,7 @@ if ( ! class_exists( 'Post_Types_Unlimited' ) ) {
 		/**
 		 * Curent plugin version.
 		 */
-		public const VERSION = '1.2.4';
+		public const VERSION = '1.2.5';
 
 		/**
 		 * Post_Types_Unlimited constructor.
@@ -63,6 +63,10 @@ if ( ! class_exists( 'Post_Types_Unlimited' ) ) {
 			// Define plugin directory path.
 			define( 'PTU_PLUGIN_DIR_PATH', plugin_dir_path( PTU_MAIN_FILE_PATH ) );
 
+			// Register activation and deactivation hooks.
+			register_activation_hook( PTU_MAIN_FILE_PATH, [ self::class, 'on_activation' ] );
+			register_deactivation_hook( PTU_MAIN_FILE_PATH, [ self::class, 'on_deactivation' ] );
+
 			// Load Text Domain
 			add_action( 'init', self::class . '::load_text_domain' );
 
@@ -80,7 +84,31 @@ if ( ! class_exists( 'Post_Types_Unlimited' ) ) {
 
 			// Vendor Support.
 			require_once PTU_PLUGIN_DIR_PATH . 'vendor/WPBakery.php';
+			require_once PTU_PLUGIN_DIR_PATH . 'vendor/ACF.php';
+		}
 
+		/**
+		 * Plugin activation callback.
+		 * 
+		 * @since  1.2.5
+		 * @access public
+		 * @return void
+		 */
+		public static function on_activation() {
+			flush_rewrite_rules();
+		}
+
+		/**
+		 * Plugin deactivation callback.
+		 * 
+		 * @since  1.2.5
+		 * @access public
+		 * @return void
+		 */
+		public static function on_deactivation() {
+			flush_rewrite_rules();
+			delete_option( 'ptu_disable_acf_post_types' );
+			delete_option( 'ptu_flush_rewrite_rules' );
 		}
 
 		/**

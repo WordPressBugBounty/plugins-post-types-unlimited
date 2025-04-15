@@ -154,7 +154,7 @@ class PostTypes {
 					'required'          => true,
 					'maxlength'         => '20',
 					'placeholder'       => \__( 'e.g. book', 'post-types-unlimited' ),
-					'desc'              => \__( 'max. 20 characters, cannot contain capital letters, underscores or spaces.', 'post-types-unlimited' ),
+					'desc'              => \__( 'Post type key. Must not exceed 20 characters and may only contain lowercase alphanumeric characters, dashes, and underscores.', 'post-types-unlimited' ),
 				),
 				array(
 					'name'        => \__( 'Label', 'post-types-unlimited' ),
