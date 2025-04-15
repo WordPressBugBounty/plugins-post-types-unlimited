@@ -5,7 +5,7 @@ Tags: custom post types, post types, types, cpt, taxonomies
 Requires at least: 5.2.0
 Requires PHP: 7.4
 Tested up to: 6.8
-Stable Tag: 1.2.5
+Stable Tag: 1.2.6
 License: GPL v2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,9 @@ Nope. This plugin includes everything you need to register custom post types and
 Yes! Post Types Unlimited is a great companion plugin for your theme. Here is the guide to [adding custom options to the post types unlimited plugin](https://www.wpexplorer.com/post-types-unlimited-custom-options/).
 
 == Changelog ==
+
+= 1.2.6 =
+* Fixed issue with a file not being uploaded to SVN.
 
 = 1.2.5 =
 * Updated the plugin so if ACF is enabled, the plugin will check whether any post types or taxonomies are defined in ACF. If none are found, it will hide the ACF post type and taxonomy dashboards to reduce bloat. This check is stored in a new option called ptu_disable_acf_post_types, allowing the plugin to perform the query only once and rely on the saved option for better performance. Deactivating the plugin will delete this option and trigger the check again when reactivated.

@@ -3,7 +3,7 @@
  * Plugin Name:       Post Types Unlimited
  * Plugin URI:        https://wordpress.org/plugins/post-types-unlimited/
  * Description:       Create unlimited custom post types and custom taxonomies.
- * Version:           1.2.5
+ * Version:           1.2.6
  * Requires at least: 5.7
  * Requires PHP:      7.4
  * Author:            WPExplorer
@@ -43,7 +43,7 @@ if ( ! class_exists( 'Post_Types_Unlimited' ) ) {
 		/**
 		 * Curent plugin version.
 		 */
-		public const VERSION = '1.2.5';
+		public const VERSION = '1.2.6';
 
 		/**
 		 * Post_Types_Unlimited constructor.
