@@ -18,7 +18,7 @@ class Metaboxes {
 	 * @var   string
 	 * @since 1.0
 	 */
-	public $version = '1.2.4';
+	public $version = '1.2.7';
 
 	/**
 	 * Default metabox settings.

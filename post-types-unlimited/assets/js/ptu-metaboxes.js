@@ -14,13 +14,19 @@
 	// Auto add name when writting the title for new posts only.
 	if ( document.body.classList.contains( 'post-new-php' ) ) {
 		const titleInput = document.querySelector( '#titlewrap #title' );
-		const nameInput = document.querySelector( '#ptu-metabox-field--name' );
-		const labelInput = document.querySelector( '#ptu-metabox-field--label' );
 		if ( titleInput ) {
+			const nameInput = document.querySelector( '#ptu-metabox-field--name' );
+			const labelInput = document.querySelector( '#ptu-metabox-field--label' );
+			const isTaxonomy = document.querySelector('#ptu_metabox_nonce_ptu_tax_metabox') !== null;
 			titleInput.addEventListener( 'keyup', debounce( () => {
-				const value = titleInput.value;
+				const value = titleInput.value.trim();
 				if ( nameInput ) {
-					nameInput.value = value.replace(/ /g, '_' ).toLowerCase();
+					nameInput.value = value
+						.toLowerCase()
+						.replace(/[^a-z0-9_-]/g, '_')    // Replace invalid characters with _
+						.replace(/_+/g, '_')             // Collapse multiple underscores
+						.replace(/^-+|-+$/g, '')         // Trim leading/trailing dashes
+						.slice(0, isTaxonomy ? 32 : 20); // Limit to 32 characters for taxonomy, 20 for post type
 				}
 				if ( labelInput ) {
 					labelInput.value = value;
