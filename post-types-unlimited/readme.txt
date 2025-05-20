@@ -5,7 +5,7 @@ Tags: custom post types, post types, types, cpt, taxonomies
 Requires at least: 5.2.0
 Requires PHP: 7.4
 Tested up to: 6.8
-Stable Tag: 1.2.7
+Stable Tag: 1.2.8
 License: GPL v2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,9 @@ Nope. This plugin includes everything you need to register custom post types and
 Yes! Post Types Unlimited is a great companion plugin for your theme. Here is the guide to [adding custom options to the post types unlimited plugin](https://www.wpexplorer.com/post-types-unlimited-custom-options/).
 
 == Changelog ==
+
+= 1.2.8 =
+* Fixed issue where group options would not save (such as the Card select in the Total theme integration).
 
 = 1.2.7 =
 * Added Sanitization to the automatic name generation for post types and taxonomies when creating new items. This ensures that only valid characters are included, and enforces proper length restrictions.

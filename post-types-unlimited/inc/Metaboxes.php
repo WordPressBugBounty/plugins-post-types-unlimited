@@ -18,7 +18,7 @@ class Metaboxes {
 	 * @var   string
 	 * @since 1.0
 	 */
-	public $version = '1.2.7';
+	public $version = '1.2.8';
 
 	/**
 	 * Default metabox settings.
@@ -728,7 +728,6 @@ class Metaboxes {
 	 */
 	protected function sanitize_value_for_db( $input, $field ) {
 		$type = $field['type'];
-
 		switch ( $type ) {
 			case 'text':
 				return \sanitize_text_field( $input );
@@ -752,8 +751,24 @@ class Metaboxes {
 				if ( \is_string( $choices ) && \is_callable( $choices ) ) {
 					$choices = \call_user_func( $choices );
 				}
-				if ( \is_array( $choices ) && \in_array( $input, $choices ) || \array_key_exists( $input, $choices ) ) {
-					return \esc_attr( $input );
+				if ( ! \is_array( $choices ) ) {
+					return;
+				}
+				$allowed_values = [];
+				foreach ( $choices as $choice_k => $choice_v ) {
+					if ( \is_array( $choice_v ) ) {
+						$sub_choices = $choice_v['choices'] ?? $choice_v['options'] ?? [];
+						if ( $sub_choices && \is_array( $sub_choices ) ) {
+							foreach ( $sub_choices as $sub_k => $sub_v ) {
+								$allowed_values[] = $sub_k;
+							}
+						}
+					} else {
+						$allowed_values[] = $choice_k;
+					}
+				}
+				if ( \in_array( $input, $allowed_values ) ) {
+					return \sanitize_text_field( $input );
 				}
 				break;
 			case 'multi_select':
