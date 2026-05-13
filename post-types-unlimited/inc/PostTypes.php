@@ -31,7 +31,7 @@ class PostTypes {
 	protected static $registered_items = [];
 
 	/**
-	 * PosTypes Constructor.
+	 * PostTypes Constructor.
 	 *
 	 * @since 1.0
 	 *
@@ -40,29 +40,31 @@ class PostTypes {
 	 */
 	public function __construct() {
 
-		// Add new submenu item under "Tools" for accessing the ptu post type.
-		\add_action( 'admin_menu', array( $this, 'admin_menu' ) );
+		if ( is_admin() ) {
 
-		// Register post type used for the admin interface - @todo can we hook into admin_init instead?
+			// Add new admin menu.
+			\add_action( 'admin_menu', array( $this, 'admin_menu' ) );
+
+			// Add custom metabox with post type settings.
+			\add_filter( 'admin_init', array( $this, 'add_meta_box' ) );
+
+			// Custom admin columns.
+			\add_filter( 'manage_edit-' . self::ADMIN_TYPE . '_columns', array( $this, 'edit_columns' ) );
+			\add_action( 'manage_' . self::ADMIN_TYPE . '_posts_custom_column', array( $this, 'column_display' ), 10, 2 );
+		}
+
+		// Register the ptu post type.
 		\add_action( 'init', array( $this, 'admin_type' ) );
-
-		// Add custom metabox with post type settings.
-		\add_filter( 'admin_init', array( $this, 'add_meta_box' ) );
 
 		// Register saved custom post types.
 		\add_action( 'init', array( $this, 'register_custom_post_types' ) );
 
 		// Post Formats Fix.
 		\add_action( 'init', array( $this, 'register_post_formats_for_type' ) );
-
-		// Custom admin columns.
-		\add_filter( 'manage_edit-' . self::ADMIN_TYPE . '_columns', array( $this, 'edit_columns' ) );
-		\add_action( 'manage_' . self::ADMIN_TYPE . '_posts_custom_column', array( $this, 'column_display' ), 10, 2 );
-
 	}
 
 	/**
-	 * Add new submenu item under "Tools" for accessing the ptu post type.
+	 * Add new admin menu.
 	 *
 	 * @since  1.0
 	 * @access public
@@ -87,7 +89,7 @@ class PostTypes {
 	 * @return void
 	 */
 	public function admin_type(): void {
-		register_post_type( self::ADMIN_TYPE, array(
+		\register_post_type( self::ADMIN_TYPE, array(
 			'labels' => array(
 				'name'               => \__( 'Post Types Unlimited Post Types', 'post-types-unlimited' ),
 				'singular_name'      => \__( 'Post Type', 'post-types-unlimited' ),
@@ -273,18 +275,7 @@ class PostTypes {
 					'id'      => 'supports',
 					'type'    => 'multi_select',
 					'desc'    => \__( 'The various metaboxes to be included when editing a singular post.', 'post-types-unlimited' ),
-					'choices' => array(
-						'title'           => \__( 'Title (default)', 'post-types-unlimited' ),
-						'editor'          => \__( 'Editor (default)', 'post-types-unlimited' ),
-						'author'          => \__( 'Author', 'post-types-unlimited' ),
-						'thumbnail'       => \__( 'Thumbnail/Featured Image', 'post-types-unlimited' ),
-						'excerpt'         => \__( 'Excerpt', 'post-types-unlimited' ),
-						'custom-fields'   => \__( 'Custom Fields', 'post-types-unlimited' ),
-						'comments'        => \__( 'Comments', 'post-types-unlimited' ),
-						'revisions'       => \__( 'Revisions', 'post-types-unlimited' ),
-						'page-attributes' => \__( 'Page Attributes', 'post-types-unlimited' ),
-						'post-formats'    => \__( 'Post Formats', 'post-types-unlimited' ),
-					),
+					'choices' => $this->supports_choices(),
 					'default' => array( 'title', 'editor' ),
 				),
 				array(
@@ -315,7 +306,9 @@ class PostTypes {
 					'name' => \__( 'Custom Rewrite Slug', 'post-types-unlimited' ),
 					'id'   => 'slug',
 					'type' => 'text',
-					'desc' => \__( '(default: $post_type name) Customize the permastruct slug. Rewrite must be enabled in order for this to work.', 'post-types-unlimited' ),
+					'desc' => defined( 'TOTAL_THEME_ACTIVE' )
+							?  \__( '(default: $post_type name) Customize the permastruct slug. Rewrite must be enabled in order for this to work. Enter 0 to remove the post type slug entirely from the URL.', 'post-types-unlimited' )
+							: \__( '(default: $post_type name) Customize the permastruct slug. Rewrite must be enabled in order for this to work.', 'post-types-unlimited' ),
 				),
 				array(
 					'name'    => \__( 'With Front', 'post-types-unlimited' ),
@@ -580,120 +573,226 @@ class PostTypes {
 			'fields'           => 'ids',
 		) );
 
-		// If we have custom post types, lets try and register them.
-		if ( $custom_types ) {
+		// No post types, bail.
+		if ( ! $custom_types ) {
+			return;
+		}
 
-			// Loop through all custom post types and register them.
-			foreach ( $custom_types as $type_id ) {
+		// Loop through all custom post types and register them.
+		foreach ( $custom_types as $type_id ) {
 
-				// Get custom post type meta.
-				$meta = \get_post_meta( $type_id, '', false );
+			// Get custom post type meta.
+			$meta = \get_post_meta( $type_id, '', false );
 
-				// Check custom post type name.
-				$name = $meta['_ptu_name'][0] ?? '';
+			// Get custom post type name.
+			$name = ! empty( $meta['_ptu_name'][0] ) ? \sanitize_key( $meta['_ptu_name'][0] ) : '';
 
-				if ( ! $name ) {
-					continue;
-				}
-
-				// Get post type label and singular name.
-				$label         = $meta['_ptu_label'][0] ?? $name;
-				$singular_name = $meta['_ptu_singular_name'][0] ?? $label;
-
-				// Define Post Type Labels
-				$labels = array(
-					'name' => \_x( $label, 'post type general name', 'post-types-unlimited' ),
-					'singular_name' => \_x( $singular_name, 'post type singular name', 'post-types-unlimited' ),
-					'add_new' => $meta['_ptu_labels_add_new'][0] ?? \_x( 'Add New', 'post type label', 'post-types-unlimited' ),
-					'add_new_item' => $meta['_ptu_labels_add_new_item'][0] ?? \sprintf( \_x( 'Add New %s', 'post type label', 'post-types-unlimited' ), $singular_name ),
-					'new_item' => $meta['_ptu_labels_new_item'][0] ?? \sprintf( \_x( 'New %s', 'post type label', 'post-types-unlimited' ), $singular_name ),
-					'edit_item' => $meta['_ptu_labels_edit_item'][0] ?? \sprintf( \_x( 'Edit %s', 'post type label', 'post-types-unlimited' ), $singular_name ),
-					'view_item' => $meta['_ptu_labels_view_item'][0] ?? \sprintf( \_x( 'View %s', 'post type label', 'post-types-unlimited' ), $singular_name ),
-					'view_items' => $meta['_ptu_labels_view_items'][0] ?? \sprintf( \_x( 'View %s', 'post type label', 'post-types-unlimited' ),  $label ),
-					'all_items' => $meta['_ptu_labels_all_items'][0] ?? \sprintf( \_x( 'All %s', 'post type label', 'post-types-unlimited' ), $label ),
-					'search_items' => $meta['_ptu_labels_search_items'][0] ?? \sprintf( \_x( 'Search %s', 'post type label', 'post-types-unlimited' ), $label ),
-					'parent_item_colon' => $meta['_ptu_labels_parent_item_colon'][0] ?? \sprintf( \_x( 'Parent %s:', 'post type label', 'post-types-unlimited' ), $label ),
-					'not_found' => $meta['_ptu_labels_not_found'][0] ?? \sprintf( \_x( 'No %s found.', 'post type label', 'post-types-unlimited' ), $label ),
-					'not_found_in_trash' => $meta['_ptu_labels_not_found_in_trash'][0] ?? \sprintf( \_x( 'No %s found in Trash.', 'post type label', 'post-types-unlimited' ), $label ),
-					'archives' => $meta['_ptu_labels_archives'][0] ?? \sprintf( \_x( '%s Archives', 'post type label', 'post-types-unlimited' ), $label ),
-					'attributes' => $meta['_ptu_labels_attributes'][0] ?? \sprintf( \_x( '%s Attributes', 'post type label', 'post-types-unlimited' ), $label ),
-					'insert_into_item' => $meta['_ptu_labels_insert_into_item'][0] ?? \sprintf( \_x( 'Insert into %s', 'post type label', 'post-types-unlimited' ), $singular_name ),
-					'uploaded_to_this_item' => $meta['_ptu_labels_uploaded_to_this_item'][0] ?? \sprintf( \_x( 'Uploaded to this %s', 'post type label', 'post-types-unlimited' ), $singular_name ),
-					'filter_items_list' => $meta['_ptu_labels_filter_items_list'][0] ?? \sprintf( \_x( 'Filter %s list', 'post type label', 'post-types-unlimited' ), \strtolower( $label ) ),
-					'items_list_navigation' => $meta['_ptu_labels_items_list_navigation'][0] ?? \sprintf( \_x( 'Filter %s list navigation', 'post type label', 'post-types-unlimited' ), \strtolower( $label ) ),
-					'items_list' => $meta['_ptu_labels_items_list'][0] ?? \sprintf( \_x( '%s list', 'post type label', 'post-types-unlimited' ), \strtolower( $label ) ),
-				);
-
-				// Custom labels
-				if ( \array_key_exists( '_ptu_labels_featured_image', $meta ) ) {
-					$labels['featured_image'] = $meta['_ptu_labels_featured_image'][0];
-				}
-				if ( \array_key_exists( '_ptu_labels_set_featured_image', $meta ) ) {
-					$labels['set_featured_image'] = $meta['_ptu_labels_set_featured_image'][0];
-				}
-				if ( \array_key_exists( '_ptu_labels_remove_featured_image', $meta ) ) {
-					$labels['remove_featured_image'] = $meta['_ptu_labels_remove_featured_image'][0];
-				}
-				if ( \array_key_exists( '_ptu_labels_use_featured_image', $meta ) ) {
-					$labels['use_featured_image'] = $meta['_ptu_labels_use_featured_image'][0];
-				}
-				if ( \array_key_exists( '_ptu_menu_name', $meta ) ) {
-					$labels['menu_name'] = $meta['_ptu_menu_name'][0];
-				}
-				if ( \array_key_exists( '_ptu_labels_name_admin_bar', $meta ) ) {
-					$labels['name_admin_bar'] = $meta['_ptu_labels_name_admin_bar'][0];
-				}
-
-				// Get args from meta.
-				$description         = \array_key_exists( '_ptu_description', $meta ) ? \__( $meta['_ptu_description'][0], 'post-types-unlimited' ) : '';
-				$show_in_menu        = $meta['_ptu_show_in_menu'][0] ?? true;
-				$show_in_menu_string = $meta['_ptu_show_in_menu_string'][0] ?? '';
-				$menu_icon           = $meta['_ptu_menu_icon'][0] ?? null;
-				$taxonomies          = \get_post_meta( $type_id, '_ptu_taxonomies', true ) ?? array();
-
-				// Define Post Type Arguments.
-				$args = array(
-					'labels'              => $labels,
-					'description'         => $description,
-					'public'              => \wp_validate_boolean( $meta['_ptu_public'][0] ?? true ),
-					'publicly_queryable'  => \wp_validate_boolean( $meta['_ptu_publicly_queryable'][0] ?? true ),
-					'exclude_from_search' => \wp_validate_boolean( $meta['_ptu_exclude_from_search'][0] ?? false ),
-					'show_ui'             => \wp_validate_boolean( $meta['_ptu_show_ui'][0] ?? true ),
-					'show_in_nav_menus'   => \wp_validate_boolean( $meta['_ptu_show_in_nav_menus'][0] ?? true ),
-					'show_in_menu'        => $show_in_menu_string ? $show_in_menu_string : \wp_validate_boolean( $show_in_menu ),
-					'show_in_admin_bar'   => \wp_validate_boolean( $meta['_ptu_show_in_admin_bar'][0] ?? false ),
-					'query_var'           => \wp_validate_boolean( $meta['_ptu_query_var'][0] ?? true ),
-					'show_in_rest'        => \wp_validate_boolean( $meta['_ptu_show_in_rest'][0] ?? false ),
-					'capability_type'     => $meta['_ptu_capability_type'][0] ?? 'post',
-					'has_archive'         => \wp_validate_boolean( $meta['_ptu_has_archive'][0] ?? false ),
-					'hierarchical'        => \wp_validate_boolean( $meta['_ptu_hierarchical'][0] ?? false ),
-					'menu_position'       => absint( $meta['_ptu_menu_position'][0] ?? 50 ),
-					'menu_icon'           => $menu_icon ? 'dashicons-' . $menu_icon : null,
-					'supports'            => get_post_meta( $type_id, '_ptu_supports', true ) ?? array( 'title', 'editor' ),
-					'taxonomies'          => is_array( $taxonomies ) ? $taxonomies : array(),
-				);
-
-				// Check rewrites.
-				$rewrite = \array_key_exists( '_ptu_rewrite', $meta ) ? $meta['_ptu_rewrite'][0] : true;
-
-				if ( $rewrite ) {
-					$args['rewrite'] = array(
-						'slug'       => $meta['_ptu_slug'][0] ?? '',
-						'with_front' => \wp_validate_boolean( $meta['_ptu_with_front'][0] ?? true ),
-					);
-				} else {
-					$args['rewrite'] = false;
-				}
-
-				// Register the custom post type.
-				\register_post_type( $name, $args );
-
-				self::$registered_items[ $name ] = $type_id;
-
+			if ( ! $name ) {
+				continue;
 			}
 
-			self::$registration_complete = true;
+			// Get post type labels.
+			$label = \sanitize_text_field( $meta['_ptu_label'][0] ?? $name );
+			$singular_name = \sanitize_text_field( $meta['_ptu_singular_name'][0] ?? $label );
+
+			$add_new = \sanitize_text_field(
+				$meta['_ptu_labels_add_new'][0]
+				?? \_x( 'Add New', 'post type label', 'post-types-unlimited' )
+			);
+
+			$add_new_item = \sanitize_text_field(
+				$meta['_ptu_labels_add_new_item'][0]
+				?? \sprintf( \_x( 'Add New %s', 'post type label', 'post-types-unlimited' ), $singular_name )
+			);
+
+			$new_item = \sanitize_text_field(
+				$meta['_ptu_labels_new_item'][0]
+				?? \sprintf( \_x( 'New %s', 'post type label', 'post-types-unlimited' ), $singular_name )
+			);
+
+			$edit_item = \sanitize_text_field(
+				$meta['_ptu_labels_edit_item'][0]
+				?? \sprintf( \_x( 'Edit %s', 'post type label', 'post-types-unlimited' ), $singular_name )
+			);
+
+			$view_item = \sanitize_text_field(
+				$meta['_ptu_labels_view_item'][0]
+				?? \sprintf( \_x( 'View %s', 'post type label', 'post-types-unlimited' ), $singular_name )
+			);
+
+			$view_items = \sanitize_text_field(
+				$meta['_ptu_labels_view_items'][0]
+				?? \sprintf( \_x( 'View %s', 'post type label', 'post-types-unlimited' ), $label )
+			);
+
+			$all_items = \sanitize_text_field(
+				$meta['_ptu_labels_all_items'][0]
+				?? \sprintf( \_x( 'All %s', 'post type label', 'post-types-unlimited' ), $label )
+			);
+
+			$search_items = \sanitize_text_field(
+				$meta['_ptu_labels_search_items'][0]
+				?? \sprintf( \_x( 'Search %s', 'post type label', 'post-types-unlimited' ), $label )
+			);
+
+			$parent_item_colon = \sanitize_text_field(
+				$meta['_ptu_labels_parent_item_colon'][0]
+				?? \sprintf( \_x( 'Parent %s:', 'post type label', 'post-types-unlimited' ), $label )
+			);
+
+			$not_found = \sanitize_text_field(
+				$meta['_ptu_labels_not_found'][0]
+				?? \sprintf( \_x( 'No %s found.', 'post type label', 'post-types-unlimited' ), $label )
+			);
+
+			$not_found_in_trash = \sanitize_text_field(
+				$meta['_ptu_labels_not_found_in_trash'][0]
+				?? \sprintf( \_x( 'No %s found in Trash.', 'post type label', 'post-types-unlimited' ), $label )
+			);
+
+			$archives = \sanitize_text_field(
+				$meta['_ptu_labels_archives'][0]
+				?? \sprintf( \_x( '%s Archives', 'post type label', 'post-types-unlimited' ), $label )
+			);
+
+			$attributes = \sanitize_text_field(
+				$meta['_ptu_labels_attributes'][0]
+				?? \sprintf( \_x( '%s Attributes', 'post type label', 'post-types-unlimited' ), $label )
+			);
+
+			$insert_into_item = \sanitize_text_field(
+				$meta['_ptu_labels_insert_into_item'][0]
+				?? \sprintf( \_x( 'Insert into %s', 'post type label', 'post-types-unlimited' ), $singular_name )
+			);
+
+			$uploaded_to_this_item = \sanitize_text_field(
+				$meta['_ptu_labels_uploaded_to_this_item'][0]
+				?? \sprintf( \_x( 'Uploaded to this %s', 'post type label', 'post-types-unlimited' ), $singular_name )
+				);
+
+			$filter_items_list = \sanitize_text_field(
+				$meta['_ptu_labels_filter_items_list'][0]
+				?? \sprintf( \_x( 'Filter %s list', 'post type label', 'post-types-unlimited' ), \strtolower( $label ) )
+			);
+
+			$items_list_navigation = \sanitize_text_field(
+				$meta['_ptu_labels_items_list_navigation'][0]
+				?? \sprintf( \_x( 'Filter %s list navigation', 'post type label', 'post-types-unlimited' ), \strtolower( $label ) )
+			);
+
+			$items_list = \sanitize_text_field(
+				$meta['_ptu_labels_items_list'][0]
+				?? \sprintf( \_x( '%s list', 'post type label', 'post-types-unlimited' ), \strtolower( $label ) )
+			);
+
+			// Build the labels array.
+			$labels = array(
+				'name'                     => \_x( $label, 'post type general name', 'post-types-unlimited' ),
+				'singular_name'            => \_x( $singular_name, 'post type singular name', 'post-types-unlimited' ),
+				'add_new'                  => $add_new,
+				'add_new_item'             => $add_new_item,
+				'new_item'                 => $new_item,
+				'edit_item'                => $edit_item,
+				'view_item'                => $view_item,
+				'view_items'               => $view_items,
+				'all_items'                => $all_items,
+				'search_items'             => $search_items,
+				'parent_item_colon'        => $parent_item_colon,
+				'not_found'                => $not_found,
+				'not_found_in_trash'       => $not_found_in_trash,
+				'archives'                 => $archives,
+				'attributes'               => $attributes,
+				'insert_into_item'         => $insert_into_item,
+				'uploaded_to_this_item'    => $uploaded_to_this_item,
+				'filter_items_list'        => $filter_items_list,
+				'items_list_navigation'    => $items_list_navigation,
+				'items_list'               => $items_list,
+			);
+
+			// Custom labels.
+			if ( ! empty( $meta['_ptu_labels_featured_image'][0] ) ) {
+				$labels['featured_image'] = \sanitize_text_field( $meta['_ptu_labels_featured_image'][0] );
+			}
+			if ( ! empty( $meta['_ptu_labels_set_featured_image'][0] ) ) {
+				$labels['set_featured_image'] = \sanitize_text_field( $meta['_ptu_labels_set_featured_image'][0] );
+			}
+			if ( ! empty( $meta['_ptu_labels_remove_featured_image'][0] ) ) {
+				$labels['remove_featured_image'] = \sanitize_text_field( $meta['_ptu_labels_remove_featured_image'][0] );
+			}
+			if ( ! empty( $meta['_ptu_labels_use_featured_image'][0] ) ) {
+				$labels['use_featured_image'] = \sanitize_text_field( $meta['_ptu_labels_use_featured_image'][0] );
+			}
+			if ( ! empty( $meta['_ptu_menu_name'][0] ) ) {
+				$labels['menu_name'] = \sanitize_text_field( $meta['_ptu_menu_name'][0] );
+			}
+			if ( ! empty( $meta['_ptu_labels_name_admin_bar'][0] ) ) {
+				$labels['name_admin_bar'] = \sanitize_text_field( $meta['_ptu_labels_name_admin_bar'][0] );
+			}
+
+			// Get post type args.
+			$description         = ! empty( $meta['_ptu_description'][0] ) ? \sanitize_text_field( $meta['_ptu_description'][0] ) : '';
+			$show_in_menu        = \wp_validate_boolean( $meta['_ptu_show_in_menu'][0] ?? true );
+			$show_in_menu_string = ! empty( $meta['_ptu_show_in_menu_string'][0] ) ? \sanitize_text_field( $meta['_ptu_show_in_menu_string'][0] ) : '';
+			$taxonomies          = \get_post_meta( $type_id, '_ptu_taxonomies', true ) ?? array();
+
+			// Get post type supports.
+			$supports = \get_post_meta( $type_id, '_ptu_supports', true );
+			if ( $supports && \is_array( $supports ) ) {
+				$supports = \array_intersect( $supports, \array_keys( $this->supports_choices() ) );
+			}
+
+			// Check for notes support as it must be added under 'editor' - https://core.trac.wordpress.org/ticket/64156
+			if ( in_array( 'notes', $supports, true ) && in_array( 'editor', $supports, true ) ) {
+				$supports['editor'] = [ 'notes' => true ];
+			}
+
+			// Get the capability type.
+			$capability_type = $meta['_ptu_capability_type'][0] ?? 'post';
+			$capability_type = in_array( $capability_type, [ 'post', 'page' ], true ) ? $capability_type : 'post';
+
+			// Define Post Type Arguments.
+			$args = array(
+				'labels'              => $labels,
+				'description'         => $description,
+				'public'              => \wp_validate_boolean( $meta['_ptu_public'][0] ?? true ),
+				'publicly_queryable'  => \wp_validate_boolean( $meta['_ptu_publicly_queryable'][0] ?? true ),
+				'exclude_from_search' => \wp_validate_boolean( $meta['_ptu_exclude_from_search'][0] ?? false ),
+				'show_ui'             => \wp_validate_boolean( $meta['_ptu_show_ui'][0] ?? true ),
+				'show_in_nav_menus'   => \wp_validate_boolean( $meta['_ptu_show_in_nav_menus'][0] ?? true ),
+				'show_in_menu'        => $show_in_menu_string ? $show_in_menu_string : $show_in_menu,
+				'show_in_admin_bar'   => \wp_validate_boolean( $meta['_ptu_show_in_admin_bar'][0] ?? false ),
+				'query_var'           => \wp_validate_boolean( $meta['_ptu_query_var'][0] ?? true ),
+				'show_in_rest'        => \wp_validate_boolean( $meta['_ptu_show_in_rest'][0] ?? false ),
+				'capability_type'     => $capability_type,
+				'has_archive'         => \wp_validate_boolean( $meta['_ptu_has_archive'][0] ?? false ),
+				'hierarchical'        => \wp_validate_boolean( $meta['_ptu_hierarchical'][0] ?? false ),
+				'menu_position'       => \absint( $meta['_ptu_menu_position'][0] ?? 50 ),
+				'menu_icon'           => ! empty( $meta['_ptu_menu_icon'][0] ) ? 'dashicons-' . \sanitize_text_field( $meta['_ptu_menu_icon'][0] ) : null,
+				'supports'            => $supports ?: array( 'title','editor' ),
+				'taxonomies'          => \is_array( $taxonomies ) ? $taxonomies : array(),
+			);
+
+			// Check rewrites.
+			$rewrite = \wp_validate_boolean( $meta['_ptu_rewrite'][0] ?? true );
+
+			if ( $rewrite ) {
+				$args['rewrite'] = array(
+					// Don't use sanitize_title() — preserve legacy slugs
+					'slug'       => isset( $meta['_ptu_slug'][0] ) ? \sanitize_text_field( $meta['_ptu_slug'][0] ) : '',
+					'with_front' => \wp_validate_boolean( $meta['_ptu_with_front'][0] ?? true ),
+				);
+			} else {
+				$args['rewrite'] = false;
+			}
+
+			// Register the custom post type.
+			\register_post_type( $name, $args );
+
+			self::$registered_items[ $name ] = $type_id;
+
 		}
+
+		self::$registration_complete = true;
 	}
 
 	/**
@@ -798,6 +897,29 @@ class PostTypes {
 				break;
 		endswitch;
 
+	}
+
+	/**
+	 * Returns array of choices for the supports parameter.
+	 * 
+	 * @since  1.3
+	 * @access private
+	 * @return arrray
+	 */
+	private function supports_choices(): array {
+		return array(
+			'title'           => \__( 'Title (default)', 'post-types-unlimited' ),
+			'editor'          => \__( 'Editor (default)', 'post-types-unlimited' ),
+			'notes'           => \__( 'Notes', 'post-types-unlimited' ),
+			'author'          => \__( 'Author', 'post-types-unlimited' ),
+			'thumbnail'       => \__( 'Featured Image', 'post-types-unlimited' ),
+			'excerpt'         => \__( 'Excerpt', 'post-types-unlimited' ),
+			'custom-fields'   => \__( 'Custom Fields', 'post-types-unlimited' ),
+			'comments'        => \__( 'Comments', 'post-types-unlimited' ),
+			'revisions'       => \__( 'Revisions', 'post-types-unlimited' ),
+			'page-attributes' => \__( 'Page Attributes', 'post-types-unlimited' ),
+			'post-formats'    => \__( 'Post Formats', 'post-types-unlimited' ),
+		);
 	}
 
 }

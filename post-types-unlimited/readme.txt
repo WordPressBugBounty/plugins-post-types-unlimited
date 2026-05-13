@@ -4,8 +4,8 @@ Donate link: https://www.wpexplorer.com/donate/
 Tags: custom post types, post types, types, cpt, taxonomies
 Requires at least: 5.2.0
 Requires PHP: 7.4
-Tested up to: 6.8
-Stable Tag: 1.2.8
+Tested up to: 6.9
+Stable Tag: 1.2.9
 License: GPL v2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,13 @@ Nope. This plugin includes everything you need to register custom post types and
 Yes! Post Types Unlimited is a great companion plugin for your theme. Here is the guide to [adding custom options to the post types unlimited plugin](https://www.wpexplorer.com/post-types-unlimited-custom-options/).
 
 == Changelog ==
+
+= 1.2.9 =
+* Added the ability to enable Notes for your post types via the Supports setting. Learn more about [WordPress Notes](https://www.wpexplorer.com/wordpress-editor-notes/).
+* Added extra sanitization for arguments passed to register_post_type and register_taxonomy.
+* Updated the taxonomy Post Type Support field to exclude the WPBakery "Gutenberg attrs" post type.
+* Updated the "tested up to" plugin version number.
+* Fixed an issue where the "Show Admin Column", "Show in Quick Edit" and "Show in TagCloud" taxonomy options were not working as expected.
 
 = 1.2.8 =
 * Fixed issue where group options would not save (such as the Card select in the Total theme integration).

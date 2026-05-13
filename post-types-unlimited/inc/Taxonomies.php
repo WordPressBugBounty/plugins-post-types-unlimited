@@ -31,7 +31,7 @@ class Taxonomies {
 	protected static $registered_items = [];
 
 	/**
-	 * PosStyles Constructor.
+	 * Taxonomies Constructor.
 	 *
 	 * @since 1.0
 	 *
@@ -40,26 +40,30 @@ class Taxonomies {
 	 */
 	public function __construct() {
 
-		// Add new submenu item under "Tools" for accessing the ptu_tax post type.
-		\add_action( 'admin_menu', array( $this, 'admin_menu' ) );
+		if ( is_admin() ) {
 
-		// Register the ptu_tax post type used for the admin interface - @todo can we hook into admin_init instead?
+			// Add new submenu under post_type=ptu.
+			\add_action( 'admin_menu', array( $this, 'admin_menu' ) );
+
+			// Add custom metabox with post type settings.
+			\add_filter( 'admin_init', array( $this, 'add_meta_box' ) );
+
+			// Custom admin columns.
+			\add_filter( 'manage_edit-' . self::ADMIN_TYPE . '_columns', array( $this, 'edit_columns' ) );
+			\add_action( 'manage_' . self::ADMIN_TYPE . '_posts_custom_column', array( $this, 'column_display' ), 10, 2 );
+
+		}
+
+		// Register the ptu_tax post type.
 		\add_action( 'init', array( $this, 'admin_type' ) );
-
-		// Add custom metabox with post type settings.
-		\add_filter( 'admin_init', array( $this, 'add_meta_box' ) );
 
 		// Register saved custom taxonomies.
 		\add_action( 'init', array( $this, 'register_taxonomies' ) );
 
-		// Custom admin columns.
-		\add_filter( 'manage_edit-' . self::ADMIN_TYPE . '_columns', array( $this, 'edit_columns' ) );
-		\add_action( 'manage_' . self::ADMIN_TYPE . '_posts_custom_column', array( $this, 'column_display' ), 10, 2 );
-
 	}
 
 	/**
-	 * Add new submenu item under "Tools" for accessing the ptu_tax post type.
+	 * Add new submenu under post_type=ptu.
 	 *
 	 * @since  1.0
 	 * @access public
@@ -182,7 +186,7 @@ class Taxonomies {
 					'type'    => 'multi_select',
 					'default' => array( 'post' ),
 					'desc'    => \__( '(default: post) Select the post types you want this taxonomy to be supported by. You must select at least one post type. Only public post types are available by default.', 'post-types-unlimited' ),
-					'choices' => $this->get_registered_types(),
+					'choices' => [ $this, 'get_registered_types' ],
 				),
 				array(
 					'name'    => \__( 'Public', 'post-types-unlimited' ),
@@ -479,10 +483,13 @@ class Taxonomies {
 		), 'objects', 'and' );
 		if ( $post_types ) {
 			foreach ( $post_types as $post_type ) {
+				if ( \in_array( $post_type->name, [ 'wpb_gutenberg_param' ], true ) ) {
+					continue; // excluded post types
+				}
 				$choices[ $post_type->name ] = $post_type->label;
 			}
 		}
-		$choices = \apply_filters( '\PTU\Taxonomies\get_registered_types', $choices ); // @todo deprecate.
+		$choices = \apply_filters( '\PTU\Taxonomies\get_registered_types', $choices ); // @deprecated
 		return (array) \apply_filters( 'ptu_taxonomies_object_type_choices', $choices );
 	}
 
@@ -508,36 +515,100 @@ class Taxonomies {
 			// Loop through all custom taxonomies and register them.
 			foreach ( $custom_taxes as $tax_id ) {
 
-				// Get custom post type meta
+				// Get taxonomy settings.
 				$meta = \get_post_meta( $tax_id, '', false );
 
-				// Check custom post type name.
-				$name = \array_key_exists( '_ptu_name', $meta ) ? $meta['_ptu_name'][0] : '';
+				// Get taxonomy name.
+				$name = ! empty( $meta['_ptu_name'][0] ) ? \sanitize_text_field( $meta['_ptu_name'][0] ) : '';
 
 				// Custom post type name is required.
 				if ( ! $name ) {
 					continue;
 				}
 
-				// Get custom labels.
-				$label                      = $meta['_ptu_label'][0] ?? $name;
-				$singular_name              = $meta['_ptu_singular_name'][0] ?? $label;
-				$search_items               = $meta['_ptu_labels_search_items'][0] ?? \sprintf( \_x( 'Search %s', 'taxonomy label', 'post-types-unlimited' ), $label );
-				$all_items                  = $meta['_ptu_labels_all_items'][0] ?? \sprintf( \_x( 'All %s', 'taxonomy label', 'post-types-unlimited' ), $label );
-				$parent_item                = $meta['_ptu_labels_parent_item'][0] ?? \sprintf( \_x( 'Parent %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name );
-				$parent_item_colon          = $meta['_ptu_labels_parent_item_colon'][0] ?? \sprintf( \_x( 'Parent %s:', 'taxonomy label', 'post-types-unlimited' ), $singular_name );
-				$view_item                  = $meta['_ptu_labels_parent_view_item'][0] ?? \sprintf( \_x( 'View %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name );
-				$edit_item                  = $meta['_ptu_labels_parent_edit_item'][0] ?? \sprintf( \_x( 'Edit %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name );
-				$update_item                = $meta['_ptu_labels_update_item'][0] ?? \sprintf( \_x( 'Update %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name );
-				$add_new_item               = $meta['_ptu_labels_add_new_item'][0] ?? \sprintf( \_x( 'Add New %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name );
-				$add_new_item_name          = $meta['_ptu_labels_add_new_item_name'][0] ?? \sprintf( \_x( 'New %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name );
-				$popular_items              = $meta['_ptu_labels_popular_items'][0] ?? \sprintf( \_x( 'Popular %s', 'taxonomy label', 'post-types-unlimited' ), $label );
-				$separate_items_with_commas = $meta['_ptu_labels_separate_items_with_commas'][0] ?? \sprintf( \_x( 'Separate %s with commas', 'taxonomy label', 'post-types-unlimited' ), $label );
-				$add_or_remove_items        = $meta['_ptu_labels_add_or_remove_items'][0] ?? \sprintf( \_x( 'Add or remove %s', 'taxonomy label', 'post-types-unlimited' ), $label );
-				$choose_from_most_used      = $meta['_ptu_labels_choose_from_most_used'][0] ?? \sprintf( \_x( 'Choose from the most used %s', 'taxonomy label', 'post-types-unlimited' ), $label );
-				$choose_not_found           = $meta['_ptu_labels_choose_from_most_used'][0] ?? \sprintf( \_x( 'Choose from the most used %s', 'taxonomy label', 'post-types-unlimited' ), $label );
-				$not_found                  = $meta['_ptu_labels_not_found'][0] ?? \sprintf( \_x( 'Choose from the most used %s', 'taxonomy label', 'post-types-unlimited' ), $label );
-				$back_to_items              = $meta['_ptu_labels_back_to_items'][0] ?? \sprintf( \_x( 'Back to %s', 'taxonomy label', 'post-types-unlimited' ), $label );
+				// Get taxonomy labels.
+				$label = \sanitize_text_field( $meta['_ptu_label'][0] ?? $name );
+				$singular_name = \sanitize_text_field( $meta['_ptu_singular_name'][0] ?? $label );
+
+				$search_items = \sanitize_text_field(
+					$meta['_ptu_labels_search_items'][0]
+					?? \sprintf( \_x( 'Search %s', 'taxonomy label', 'post-types-unlimited' ), $label )
+				);
+
+				$all_items = \sanitize_text_field(
+					$meta['_ptu_labels_all_items'][0]
+					?? \sprintf( \_x( 'All %s', 'taxonomy label', 'post-types-unlimited' ), $label )
+				);
+
+				$parent_item = \sanitize_text_field(
+					$meta['_ptu_labels_parent_item'][0]
+					?? \sprintf( \_x( 'Parent %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name )
+				);
+
+				$parent_item_colon = \sanitize_text_field(
+					$meta['_ptu_labels_parent_item_colon'][0]
+					?? \sprintf( \_x( 'Parent %s:', 'taxonomy label', 'post-types-unlimited' ), $singular_name )
+				);
+
+				$view_item = \sanitize_text_field(
+					$meta['_ptu_labels_parent_view_item'][0]
+					?? \sprintf( \_x( 'View %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name )
+				);
+
+				$edit_item = \sanitize_text_field(
+					$meta['_ptu_labels_parent_edit_item'][0]
+					?? \sprintf( \_x( 'Edit %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name )
+				);
+
+				$update_item = \sanitize_text_field(
+					$meta['_ptu_labels_update_item'][0]
+					?? \sprintf( \_x( 'Update %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name )
+				);
+
+				$add_new_item = \sanitize_text_field(
+					$meta['_ptu_labels_add_new_item'][0]
+					?? \sprintf( \_x( 'Add New %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name )
+				);
+
+				$add_new_item_name = \sanitize_text_field(
+					$meta['_ptu_labels_add_new_item_name'][0]
+					?? \sprintf( \_x( 'New %s', 'taxonomy label', 'post-types-unlimited' ), $singular_name )
+				);
+
+				$popular_items = \sanitize_text_field(
+					$meta['_ptu_labels_popular_items'][0]
+					?? \sprintf( \_x( 'Popular %s', 'taxonomy label', 'post-types-unlimited' ), $label )
+				);
+
+				$separate_items_with_commas = \sanitize_text_field(
+					$meta['_ptu_labels_separate_items_with_commas'][0]
+					?? \sprintf( \_x( 'Separate %s with commas', 'taxonomy label', 'post-types-unlimited' ), $label )
+				);
+
+				$add_or_remove_items = \sanitize_text_field(
+					$meta['_ptu_labels_add_or_remove_items'][0]
+					?? \sprintf( \_x( 'Add or remove %s', 'taxonomy label', 'post-types-unlimited' ), $label )
+				);
+
+				$choose_from_most_used = \sanitize_text_field(
+					$meta['_ptu_labels_choose_from_most_used'][0]
+					?? \sprintf( \_x( 'Choose from the most used %s', 'taxonomy label', 'post-types-unlimited' ), $label )
+				);
+
+				$choose_not_found = \sanitize_text_field(
+					$meta['_ptu_labels_choose_from_most_used'][0]
+					?? \sprintf( \_x( 'Choose from the most used %s', 'taxonomy label', 'post-types-unlimited' ), $label )
+				);
+
+				$not_found = \sanitize_text_field(
+					$meta['_ptu_labels_not_found'][0]
+					?? \sprintf( \_x( 'Choose from the most used %s', 'taxonomy label', 'post-types-unlimited' ), $label )
+				);
+
+				$back_to_items = \sanitize_text_field(
+					$meta['_ptu_labels_back_to_items'][0]
+					?? \sprintf( \_x( 'Back to %s', 'taxonomy label', 'post-types-unlimited' ), $label )
+				);
 
 				// labels array.
 				$labels = array(
@@ -560,31 +631,35 @@ class Taxonomies {
 					'back_to_items'              => $back_to_items,
 				);
 
-				if ( array_key_exists( '_ptu_menu_name', $meta ) ) {
-					$labels['menu_name'] = $meta['_ptu_menu_name'][0];
+				if ( ! empty( $meta['_ptu_menu_name'][0] ) ) {
+					$labels['menu_name'] = \sanitize_text_field( $meta['_ptu_menu_name'][0] );
 				}
 
 				// Define taxonomy arguments.
 				$args = array(
 					'labels'                => $labels,
-					'description'           => \sanitize_text_field( $meta['_ptu_description'][0] ?? '' ),
+					'description'           => ! empty( $meta['_ptu_description'][0] ) ? \sanitize_text_field( $meta['_ptu_description'][0] ) : '',
+					// args enabled by default.
 					'public'                => \wp_validate_boolean( $meta['_ptu_public'][0] ?? true ),
 					'publicly_queryable'    => \wp_validate_boolean( $meta['_ptu_publicly_queryable'][0] ?? true ),
-					'hierarchical'          => \wp_validate_boolean( $meta['_ptu_hierarchical'][0] ?? false ),
 					'show_ui'               => \wp_validate_boolean( $meta['_ptu_show_ui'][0] ?? true ),
 					'show_in_nav_menus'     => \wp_validate_boolean( $meta['_ptu_show_in_nav_menus'][0] ?? true ),
 					'show_in_menu'          => \wp_validate_boolean( $meta['_ptu_show_in_menu'][0] ?? true ),
-					'show_admin_column'     => \wp_validate_boolean( $meta['_ptu_show_admin_column'][0] ?? true ),
+					'show_in_quick_edit'    => \wp_validate_boolean( $meta['_ptu_show_in_quick_edit'][0] ?? true ),
 					'query_var'             => \wp_validate_boolean( $meta['_ptu_query_var'][0] ?? true ),
+					'show_tagcloud'         => \wp_validate_boolean( $meta['_ptu_show_tagcloud'][0] ?? true ),
+					// args disabled by default.
+					'hierarchical'          => \wp_validate_boolean( $meta['_ptu_hierarchical'][0] ?? false ),
 					'show_in_rest'          => \wp_validate_boolean( $meta['_ptu_show_in_rest'][0] ?? false ),
-
+					'show_admin_column'     => \wp_validate_boolean( $meta['_ptu_show_admin_column'][0] ?? false ),
 				);
 
 				$rewrite = \wp_validate_boolean( $meta['_ptu_rewrite'][0] ?? true );
 
 				if ( $rewrite ) {
 					$args['rewrite'] = array(
-						'slug'         => $meta['_ptu_slug'][0] ?? '',
+						// Don't use sanitize_title() — preserve legacy slugs
+						'slug'         => isset( $meta['_ptu_slug'][0] ) ? \sanitize_text_field( $meta['_ptu_slug'][0] ) : '',
 						'with_front'   => \wp_validate_boolean( $meta['_ptu_with_front'][0] ?? true ),
 						'hierarchical' => \wp_validate_boolean( $meta['_ptu_with_front'][0] ?? false ),
 					);
@@ -592,12 +667,12 @@ class Taxonomies {
 					$args['rewrite'] = false;
 				}
 
-				if ( \array_key_exists( '_ptu_rest_base', $meta ) ) {
-					$labels['rest_base'] = $meta['_ptu_rest_base'][0];
+				if ( ! empty( $meta['_ptu_rest_base'][0] ) ) {
+					$labels['rest_base'] = \sanitize_text_field( $meta['_ptu_rest_base'][0] );
 				}
 
-				if ( \array_key_exists( '_ptu_rest_controller_class', $meta ) ) {
-					$labels['rest_controller_class'] = $meta['_ptu_rest_controller_class'][0];
+				if ( ! empty( $meta['_ptu_rest_controller_class'][0] ) ) {
+					$labels['rest_controller_class'] = \sanitize_text_field( $meta['_ptu_rest_controller_class'][0] );
 				}
 
 				$object_type = \get_post_meta( $tax_id, '_ptu_object_type', true );

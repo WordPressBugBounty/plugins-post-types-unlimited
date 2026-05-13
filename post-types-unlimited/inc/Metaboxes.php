@@ -502,8 +502,7 @@ class Metaboxes {
 	protected function field_select( $field, $value ) {
 		$choices = $field['choices'] ?? array();
 
-		// @todo remove the is_string check and instead do ! is_array()
-		if ( \is_string( $choices ) && \is_callable( $choices ) ) {
+		if ( \is_callable( $choices ) ) {
 			$choices = \call_user_func( $choices );
 		}
 
@@ -554,6 +553,10 @@ class Metaboxes {
 	protected function field_multi_select( $field, $value ) {
 		$value   = \is_array( $value ) ? $value : array();
 		$choices = $field['choices'] ?? array();
+
+		if ( \is_callable( $choices ) ) {
+			$choices = \call_user_func( $choices );
+		}
 
 		if ( empty( $choices ) ) {
 			return;
@@ -748,7 +751,7 @@ class Metaboxes {
 				break;
 			case 'select':
 				$choices = $field['choices'] ?? [];
-				if ( \is_string( $choices ) && \is_callable( $choices ) ) {
+				if ( \is_callable( $choices ) ) {
 					$choices = \call_user_func( $choices );
 				}
 				if ( ! \is_array( $choices ) ) {
@@ -767,22 +770,26 @@ class Metaboxes {
 						$allowed_values[] = $choice_k;
 					}
 				}
+				// we use lose check for number-based values
 				if ( \in_array( $input, $allowed_values ) ) {
 					return \sanitize_text_field( $input );
 				}
 				break;
 			case 'multi_select':
+				$choices = $field['choices'] ?? [];
+				if ( \is_callable( $choices ) ) {
+					$choices = \call_user_func( $choices );
+				}
 				if ( ! is_array( $input ) ) {
 					return $field['default'] ?? array();
 				}
-				$checks = true;
+				$safe_values = [];
 				foreach ( $input as $v ) {
-					if ( ! \in_array( $v, $field['choices'] ) && ! \array_key_exists( $v, $field['choices'] ) ) {
-						$checks = false;
-						break;
+					if ( \in_array( $v, $choices, true ) || \array_key_exists( $v, $choices ) ) {
+						$safe_values[] = \sanitize_text_field( $v );
 					}
 				}
-				return $checks ? $input : array();
+				return $safe_values;
 				break;
 			default:
 				return \sanitize_text_field( $input );
